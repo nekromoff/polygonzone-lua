@@ -261,7 +261,7 @@ li {
     padding: 8px 16px;
     border-radius: 5px;
     margin-top: 8px;
-    
+
     font-size: 1em;
     box-shadow: 0 2px 3px 1px rgb(0 0 0 / 20%);
     background-color: #fbf9ff;
@@ -310,3 +310,15 @@ li {
 .mt-3 {
     margin-top: 24px;
 }
+
+input[type="file"] {
+    border-radius: 4px;
+    background-color: #7733f4;
+    box-shadow: 0 3px 3px 0 rgb(55 65 81 / 20%);
+    font-family: proxima-nova,sans-serif;
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: .5px;
+}
+

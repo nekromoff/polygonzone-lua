@@ -15,17 +15,18 @@ var color_choices = [
 
 var radiansPer45Degrees = Math.PI / 4;
 
+var padding = 30;
 var imageContainer = document.querySelector('.image-container');
 var canvas = document.getElementById('canvas');
 var mainCtx = canvas.getContext('2d');
 var offScreenCanvas = document.createElement('canvas');
 var offScreenCtx = offScreenCanvas.getContext('2d');
-offScreenCanvas.width = canvas.width;
-offScreenCanvas.height = canvas.height;
+offScreenCanvas.width = canvas.width + padding * 2;
+offScreenCanvas.height = canvas.height + padding * 2;
 
 var img = new Image();
 var rgb_color = color_choices[0];
-var fill_color =  'rgba(0,0,0,0.35)';
+var fill_color = 'rgba(0,0,0,0.35)';
 
 var scaleFactor = 1;
 var scaleSpeed = 0.01;
@@ -33,6 +34,7 @@ var scaleSpeed = 0.01;
 var points = [];
 var masterPoints = [];
 var masterColors = [];
+var input = document.querySelector('input[type="file"]');
 
 var drawMode;
 setDrawMode('polygon');
@@ -45,7 +47,7 @@ function resetState() {
     masterColors = [];
     rgb_color = color_choices[0];
     document.querySelector('#json').innerHTML = '';
-    document.querySelector('#python').innerHTML = '';
+    document.querySelector('#lua').innerHTML = '';
 }
 
 
@@ -60,6 +62,12 @@ var selectedPolygonIndex = -1;
 function blitCachedCanvas() {
     mainCtx.clearRect(0, 0, canvas.width, canvas.height);
     mainCtx.drawImage(offScreenCanvas, 0, 0);
+    mainCtx.lineWidth = 1;
+    mainCtx.strokeStyle = '#333333';
+    mainCtx.rect(padding, padding, img.width, img.height);
+    mainCtx.stroke();
+    mainCtx.lineWidth = 5;
+    mainCtx.strokeStyle = color_choices[0];
 }
 
 function clipboard(selector) {
@@ -126,46 +134,66 @@ function onPathClose() {
 }
 
 // placeholder image
-img.src = 'https://assets.website-files.com/5f6bc60e665f54545a1e52a5/63d3f236a6f0dae14cdf0063_drag-image-here.png';
+img.src = 'default.png';
 img.onload = function() {
-    scaleFactor = 0.69;
-    canvas.style.width = img.width * scaleFactor + 'px';
-    canvas.style.height = img.height * scaleFactor + 'px';
-    canvas.width = img.width;
-    canvas.height = img.height;
-    offScreenCanvas.width = img.width;
-    offScreenCanvas.height = img.height;
+    canvas.style.width = img.width + padding * 2;
+    canvas.style.height = img.height + padding * 2;
+    canvas.width = img.width + padding * 2;
+    canvas.height = img.height + padding * 2;
+    offScreenCanvas.width = img.width + padding * 2;
+    offScreenCanvas.height = img.height + padding * 2;
     offScreenCtx.drawImage(img, 0, 0);
+    mainCtx.width = img.width + padding * 2;
+    mainCtx.height = img.height + padding * 2;
     blitCachedCanvas();
 };
 
 function makeLine(ctx, x1, y1, x2, y2) {
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
+    [x1, y1] = getClampedCoords(x1, y1);
+    [x2, y2] = getClampedCoords(x2, y2);
+    ctx.moveTo(x1 + padding, y1 + padding);
+    ctx.lineTo(x2 + padding, y2 + padding);
 }
 
 function drawNode(ctx, x, y, stroke = null) {
     if (stroke) {
         ctx.strokeStyle = stroke;
     }
+    [x, y] = getClampedCoords(x, y);
     ctx.beginPath();
-    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+    ctx.arc(x + padding, y + padding, 5, 0, 2 * Math.PI);
     ctx.closePath();
     ctx.fillStyle = 'white';
     ctx.fill();
     ctx.stroke();
 }
 
+function getClampedCoords(x, y) {
+    if (x < 0) {
+        x = 0;
+    }
+    if (y < 0) {
+        y = 0;
+    }
+    if (x > img.width) {
+        x = img.width;
+    }
+    if (y > img.height) {
+        y = img.height;
+    }
+    return [x, y];
+}
+
 function getScaledCoords(e) {
     var rect = canvas.getBoundingClientRect();
-    var x = e.clientX - rect.left;
-    var y = e.clientY - rect.top;
+    var x = e.clientX - rect.left - padding;
+    var y = e.clientY - rect.top - padding;
     return [x / scaleFactor, y / scaleFactor];
 }
 
 function drawAllPolygons(ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, padding, padding);
     // draw polygons as subpaths and fill all at once
     // we do this to avoid overlapping polygons becoming opaque
     ctx.beginPath();
@@ -174,15 +202,15 @@ function drawAllPolygons(ctx) {
         var newpoints = masterPoints[i];
         for (var j = 1; j < newpoints.length; j++) {
             makeLine(ctx, newpoints[j - 1][0], newpoints[j - 1][1], newpoints[j][0], newpoints[j][1]);
-            ctx.moveTo(newpoints[0][0], newpoints[0][1]);
+            ctx.moveTo(newpoints[0][0] + padding, newpoints[0][1] + padding);
             for (var j = 1; j < newpoints.length; j++) {
-                ctx.lineTo(newpoints[j][0], newpoints[j][1]);
+                ctx.lineTo(newpoints[j][0] + padding, newpoints[j][1] + padding);
             }
             makeLine(ctx, newpoints[newpoints.length - 1][0], newpoints[newpoints.length - 1][1], newpoints[0][0], newpoints[0][1]);
         }
     }
     ctx.fill();
-    
+
     ctx.lineWidth = 5;
     ctx.lineJoin = 'bevel';
     for (var i = 0; i < masterPoints.length; i++) {
@@ -192,10 +220,10 @@ function drawAllPolygons(ctx) {
         ctx.beginPath();
         for (var j = 1; j < newpoints.length; j++) {
             makeLine(ctx, newpoints[j - 1][0], newpoints[j - 1][1], newpoints[j][0], newpoints[j][1]);
-            ctx.moveTo(newpoints[0][0], newpoints[0][1]);
+            ctx.moveTo(newpoints[0][0] + padding, newpoints[0][1] + padding);
             for (var j = 1; j < newpoints.length; j++) {
-                ctx.lineTo(newpoints[j][0], newpoints[j][1]);
-            }   
+                ctx.lineTo(newpoints[j][0] + padding, newpoints[j][1] + padding);
+            }
         }
         ctx.closePath();
         ctx.stroke();
@@ -210,6 +238,7 @@ function drawAllPolygons(ctx) {
 function getParentPoints() {
     var parentPoints = [];
     for (var i = 0; i < masterPoints.length; i++) {
+        masterPoints[i]
         parentPoints.push(masterPoints[i]);
     }
     parentPoints.push(points);
@@ -235,7 +264,11 @@ function findClosestPoint(x, y) {
         }
     }
 
-    return { point: closestPoint, polygonIndex, pointIndex };
+    return {
+        point: closestPoint,
+        polygonIndex,
+        pointIndex
+    };
 }
 
 window.addEventListener('keyup', function(e) {
@@ -244,9 +277,9 @@ window.addEventListener('keyup', function(e) {
     }
 });
 
-document.querySelector('#copyPythonButton').addEventListener('click', function(e) {
+document.querySelector('#copyLuaButton').addEventListener('click', function(e) {
     e.preventDefault();
-    clipboard("#python");
+    clipboard("#lua");
 });
 
 document.querySelector('#copyJSONButton').addEventListener('click', function(e) {
@@ -266,7 +299,7 @@ canvas.addEventListener('wheel', function(e) {
 
 canvas.addEventListener('mouseleave', function(e) {
     var xcoord = document.querySelector('#x');
-    var ycoord = document.querySelector('#y'); 
+    var ycoord = document.querySelector('#y');
     xcoord.innerHTML = '';
     ycoord.innerHTML = '';
 });
@@ -280,7 +313,7 @@ canvas.addEventListener('mousemove', function(e) {
     var xcoord = document.querySelector('#x');
     var ycoord = document.querySelector('#y');
 
-    if(constrainAngles && points.length > 0) {
+    if (constrainAngles && points.length > 0) {
         var lastPoint = points[points.length - 1];
         var dx = x - lastPoint[0];
         var dy = y - lastPoint[1];
@@ -295,13 +328,16 @@ canvas.addEventListener('mousemove', function(e) {
 
     // sometimes, a mousemove event is leaving the canvas and has coordinates outside the canvas
     // however, due to the cursors being used, we do not need to check if it is larger than canvas.width or canvas.height
-    if (x < 0 || y < 0 ){
+    if (x < 0 || y < 0) {
         xcoord.innerHTML = '';
         ycoord.innerHTML = '';
         return;
     }
     xcoord.innerHTML = x;
     ycoord.innerHTML = y;
+
+    var coord_count = document.querySelector('#cc-count');
+    coord_count.innerHTML = getParentPoints()[0].length;
 
     var ctx = mainCtx;
     ctx.lineWidth = 5;
@@ -347,58 +383,52 @@ canvas.addEventListener('mousemove', function(e) {
 canvas.addEventListener('drop', function(e) {
     e.preventDefault();
     var file = e.dataTransfer.files[0];
+    processAndDisplayImage(file);
+});
 
-    // only allow image files
-    var supportedImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    if (!supportedImageTypes.includes(file.type)) {
-        alert('Only PNG, JPEG, JPG, and WebP files are allowed.');
-        return;
-    }
+// function to process uploading image file through form instead of drag and drop
+document.querySelector("#upload-file").addEventListener('submit', (e) => {
+    e.preventDefault();
+    var file = input.files[0];
+    processAndDisplayImage(file);
+});
 
+// This function abstracts away the logic to read and verify the image file, allowing it to be used by both the
+// drop method, and the upload a file form method
+function processAndDisplayImage(file) {
     var reader = new FileReader();
+
     reader.onload = function(event) {
+        // only allow image files
         img.src = event.target.result;
     };
     reader.readAsDataURL(file);
 
+    var mime_type = file.type;
+
+    if (
+        mime_type != 'image/png' &&
+        mime_type != 'image/jpeg' &&
+        mime_type != 'image/jpg'
+    ) {
+        alert('Only PNG, JPEG, and JPG files are allowed.');
+        return;
+    }
+
     img.onload = function() {
-        // reset state to initial values
-        resetState();
-
-        // draw loaded image on canvas
-        scaleFactor = 0.25;
-        canvas.style.width = img.width * scaleFactor + 'px';
-        canvas.style.height = img.height * scaleFactor + 'px';
-        canvas.width = img.width;
-        canvas.height = img.height;
-        offScreenCanvas.width = img.width;
-        offScreenCanvas.height = img.height;
-
-        const maxWidth = imageContainer.offsetWidth * 0.95;
-        const maxHeight = imageContainer.offsetHeight * 0.95;
-
-        let newWidth = img.width;
-        let newHeight = img.height;
-
-        if (newWidth > maxWidth) {
-            newHeight = (maxWidth / newWidth) * newHeight;
-            newWidth = maxWidth;
-        }
-
-        if (newHeight > maxHeight) {
-            newWidth = (maxHeight / newHeight) * newWidth;
-            newHeight = maxHeight;
-        }
-
-        scaleFactor = newWidth / img.width;
-
-        canvas.style.width = newWidth + 'px';
-        canvas.style.height = newHeight + 'px';
+        canvas.style.width = (img.width + padding * 2) + 'px';
+        canvas.style.height = (img.height + padding * 2) + 'px';
+        canvas.width = img.width + padding * 2;
+        canvas.height = img.height + padding * 2;
         canvas.style.borderRadius = '10px';
-        offScreenCtx.drawImage(img, 0, 0);
+        offScreenCanvas.width = img.width + padding * 2;
+        offScreenCanvas.height = img.height + padding * 2;
+        offScreenCtx.drawImage(img, padding, padding);
         blitCachedCanvas();
     };
-});
+    // show coords
+    //document.getElementById('coords').style.display = 'inline-block';
+}
 
 function writePoints(parentPoints) {
     var normalized = [];
@@ -410,10 +440,19 @@ function writePoints(parentPoints) {
         for (var i = 0; i < parentPoints.length; i++) {
             var normalizedPoints = [];
             for (var j = 0; j < parentPoints[i].length; j++) {
-                normalizedPoints.push([
-                    Math.round(parentPoints[i][j][0] / imgWidth * 100) / 100,
-                    Math.round(parentPoints[i][j][1] / imgHeight * 100) / 100
-                ]);
+                norm_x = Math.round(parentPoints[i][j][0] / imgWidth * 100) / 100;
+                norm_y = Math.round(parentPoints[i][j][1] / imgHeight * 100) / 100;
+                normalizedPoints.push([norm_x, norm_y]);
+            }
+            normalized.push(normalizedPoints);
+        }
+        parentPoints = normalized;
+    } else {
+        for (var i = 0; i < parentPoints.length; i++) {
+            var normalizedPoints = [];
+            for (var j = 0; j < parentPoints[i].length; j++) {
+                [norm_x, norm_y] = getClampedCoords(parentPoints[i][j][0], parentPoints[i][j][1]);
+                normalizedPoints.push([norm_x, norm_y]);
             }
             normalized.push(normalizedPoints);
         }
@@ -424,18 +463,18 @@ function writePoints(parentPoints) {
     parentPoints = parentPoints.filter(points => !!points.length);
 
     if (!parentPoints.length) {
-        document.querySelector('#python').innerHTML = '';
+        document.querySelector('#lua').innerHTML = '';
         document.querySelector('#json').innerHTML;
         return;
     }
 
     // create np.array list
-    var code_template = `[\n${parentPoints.map(function(points) {
-                            return `    np.array([${points.map(function(point) {
-                                return `[${point[0]}, ${point[1]}]`;}).join(', ')}])`;
-                            }).join(',\n')}\n]`;
+    var code_template = `${parentPoints.map(function(points) {
+                            return `${points.map(function(point) {
+                                return `${point[0]}, ${point[1]}`;}).join(', ')}`;
+                            })}`;
 
-    document.querySelector('#python').innerHTML = code_template;
+    document.querySelector('#lua').innerHTML = '{ ' + code_template + ' }';
 
     var json_template = `{\n${parentPoints.map(function(points) {
         return `    [${points.map(function(point) {
@@ -451,7 +490,11 @@ canvas.addEventListener('mousedown', function(e) {
     y = Math.round(y);
 
     if (editMode) {
-        const { point, polygonIndex, pointIndex } = findClosestPoint(x, y);
+        const {
+            point,
+            polygonIndex,
+            pointIndex
+        } = findClosestPoint(x, y);
         if (point) {
             selectedPointIndex = pointIndex;
             selectedPolygonIndex = polygonIndex;
@@ -461,7 +504,7 @@ canvas.addEventListener('mousedown', function(e) {
         // click handling for drawing mode
         canvas.style.cursor = 'crosshair';
 
-        if(constrainAngles && points.length > 0) {
+        if (constrainAngles && points.length > 0) {
             var lastPoint = points[points.length - 1];
             var dx = x - lastPoint[0];
             var dy = y - lastPoint[1];
@@ -477,8 +520,8 @@ canvas.addEventListener('mousedown', function(e) {
         if (points.length > 2 && drawMode == "polygon") {
             distX = x - points[0][0];
             distY = y - points[0][1];
-            // stroke is 3px and centered on the circle (i.e. 1/2 * 3px) and arc radius is 
-            if(Math.sqrt(distX * distX + distY * distY) <= 6.5) {
+            // stroke is 3px and centered on the circle (i.e. 1/2 * 3px) and arc radius is
+            if (Math.sqrt(distX * distX + distY * distY) <= 6.5) {
                 onPathClose();
                 return;
             }
@@ -486,24 +529,15 @@ canvas.addEventListener('mousedown', function(e) {
 
         points.push([x, y]);
 
-        drawNode(mainCtx, x, y, rgb_color); 
+        drawNode(mainCtx, x, y, rgb_color);
 
-        if(drawMode == "line" && points.length == 2) {
+        if (drawMode == "line" && points.length == 2) {
             onPathClose();
         }
 
-        // concat all points into one array
-        var parentPoints = [];
-
-        for (var i = 0; i < masterPoints.length; i++) {
-            parentPoints.push(masterPoints[i]);
-        }
-        // add "points"
-        if(points.length > 0) {
-            parentPoints.push(points);
-        }
-
-        writePoints(parentPoints);
+        writePoints(getParentPoints());
+        var coord_count = document.querySelector('#cc-count');
+        coord_count.innerHTML = getParentPoints()[0].length;
     }
 });
 
@@ -518,7 +552,7 @@ canvas.addEventListener('mouseup', function(e) {
 document.querySelector('#normalize-checkbox').addEventListener('change', function(e) {
     showNormalized = e.target.checked;
     var parentPoints = getParentPoints();
-    writePoints(parentPoints);
+    writePoints(getParentPoints());
 });
 
 function setDrawMode(mode) {
@@ -561,11 +595,10 @@ document.addEventListener('keydown', function(e) {
 });
 
 function rewritePoints() {
-    var parentPoints = getParentPoints();
-    writePoints(parentPoints);
+    writePoints(getParentPoints());
 }
 
-function highlightButtonInteraction (buttonId) {
+function highlightButtonInteraction(buttonId) {
     document.querySelector(buttonId).classList.add('active');
     setTimeout(() => document.querySelector(buttonId).classList.remove('active'), 100);
 }
@@ -578,7 +611,7 @@ function undo() {
         blitCachedCanvas();
         rewritePoints();
 
-        if(points.length === 0){
+        if (points.length === 0) {
             return;
         }
 
@@ -587,8 +620,7 @@ function undo() {
         ctx.fillStyle = 'white';
         if (points.length === 1) {
             drawNode(ctx, points[0][0], points[0][1]);
-        }
-        else {
+        } else {
             drawNode(ctx, points[0][0], points[0][1]);
             for (var i = 0; i < points.length - 1; i++) {
                 makeLine(ctx, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
@@ -603,7 +635,7 @@ document.querySelector('#undo').addEventListener('click', function(e) {
     undo();
 })
 
-function discardCurrentPolygon () {
+function discardCurrentPolygon() {
     highlightButtonInteraction('#discard-current');
     points = [];
     blitCachedCanvas();
@@ -620,21 +652,21 @@ function clearAll() {
     // reset main and offscreen canvases
     mainCtx.clearRect(0, 0, canvas.width, canvas.height);
     offScreenCtx.clearRect(0, 0, offScreenCanvas.width, offScreenCanvas.height);
-    mainCtx.drawImage(img, 0, 0);
-    offScreenCtx.drawImage(img, 0, 0);
+    mainCtx.drawImage(img, padding, padding);
+    offScreenCtx.drawImage(img, padding, padding);
     points = [];
     masterPoints = [];
     masterColors = [];
     rgb_color = color_choices[0];
     document.querySelector('#jsonCode').innerHTML = '';
-    document.querySelector('#pythonCode').innerHTML = '';
+    document.querySelector('#luaCode').innerHTML = '';
 }
 
 document.querySelector('#clear').addEventListener('click', function(e) {
     clearAll();
 })
 
-function saveImage () {
+function saveImage() {
     highlightButtonInteraction('#save-image');
 
     var link = document.createElement('a');
@@ -649,7 +681,7 @@ document.querySelector('#save-image').addEventListener('click', function(e) {
 
 function toggleFullscreen() {
     highlightButtonInteraction('#fullscreen');
-    
+
     if (!isFullscreen) {
         if (taskbarAndCanvas.requestFullscreen) {
             taskbarAndCanvas.requestFullscreen();
@@ -704,7 +736,7 @@ window.addEventListener('keydown', function(e) {
     }
 
     if (e.key === 'Enter') {
-        if(points.length > 2) {
+        if (points.length > 2) {
             onPathClose();
         }
     }
