@@ -278,13 +278,13 @@ window.addEventListener('keyup', function(e) {
 });
 
 document.querySelector('#copyLuaButton').addEventListener('click', function(e) {
-    e.preventDefault();
     clipboard("#lua");
+    e.preventDefault();
 });
 
 document.querySelector('#copyJSONButton').addEventListener('click', function(e) {
-    e.preventDefault();
     clipboard("#json");
+    e.preventDefault();
 });
 
 canvas.addEventListener('dragover', function(e) {
